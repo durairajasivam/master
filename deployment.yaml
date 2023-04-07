@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app
+  namespace: app
+  labels:
+    name: my-app
+    tier: app
+    env: dev
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  template:
+    metadata:
+      name: my-app
+      labels:
+        name: my-app
+        tier: app
+        env: dev
+    spec:
+      containers:
+        - name: my-app
+          image: my-app:v1.0.0
+          resources:
+            limits:
+              memory: 500Mi
+              cpu: "100m"
+              ephemeral-storage: "2Gi"
+            requests:
+              memory: 250Mi
+              cpu: "50m"
+              ephemeral-storage: "1Gi"
+          envFrom:
+          - secretRef:
+              name: jasypt.encryptor.password                          
+          volumeMounts:
+            - mountPath: /application.properties
+              subPath: "application.properties"
+              name: config-volume
+            - mountPath: /encrypted.properties
+              subPath: "encrypted.properties"
+              name: config-volume              
+            - mountPath: /certs
+              name: my-app-controller-crt-volume 
+            - mountPath: /out
+              name: my-app-controller-csv-volume  
+            - mountPath: /logs
+              name: my-app-controller-log-volume                      
+          imagePullPolicy: Never
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 5
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            fsGroup: 2000
+      volumes:
+        - name: my-app-controller-crt-volume
+          persistentVolumeClaim:
+            claimName: my-app-controller-crt-volume-pvc   
+        - name: my-app-controller-log-volume
+          persistentVolumeClaim:
+            claimName: my-app-controller-log-volume-pvc   
+        - name: my-app-controller-csv-volume
+          persistentVolumeClaim:
+            claimName: my-app-controller-csv-volume-pvc             
+        - name: config-volume
+          configMap:
+            name: my-app-dev-config
+      restartPolicy: Always
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - worker-node-1
+      tolerations:
+        - key: node.kubernetes.io/unreachable
+          operator: Exists
+          effect: NoSchedule
+  selector:
+    matchLabels:
+      name: my-app
+      tier: app
+      env: dev
