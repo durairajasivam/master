@@ -97,6 +97,8 @@ spec:
         - name: config-volume
           configMap:
             name: my-app-dev-config
+        - name: certs-volume
+          emptyDir: {}               
       restartPolicy: Always
       affinity:
         nodeAffinity:
