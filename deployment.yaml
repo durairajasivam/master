@@ -22,6 +22,23 @@ spec:
         tier: app
         env: dev
     spec:
+      initContainers:
+      - name: init-secret
+        image: app-secret-init:v1.0.0
+        env:
+        - name: CA_CERT
+          valueFrom:
+            secretKeyRef:
+              name: cctv-controller-app
+              key: ca-chain
+        - name: AMQP_CLIENT_CERT
+          valueFrom:
+            secretKeyRef:
+              name: cctv-controller-app
+              key: amqp-client-cert            
+        volumeMounts:
+        - name: certs-volume
+          mountPath: /certs          
       containers:
         - name: my-app
           image: my-app:v1.0.0
